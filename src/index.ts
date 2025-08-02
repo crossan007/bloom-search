@@ -1,7 +1,5 @@
-import { BloomFilter } from "./BloomFilter";
-import { BloomFilterMap } from "./BloomFilter";
-import { ObjectBloom } from "./ObjectBloom";
-import { SearchBloom } from "./SearchBloom";
-import { extractNgramsFromObject} from "./extractNgramsFromObject";
-
-export { BloomFilter, BloomFilterMap, ObjectBloom, SearchBloom, extractNgramsFromObject };
+// filepath: src/index.ts
+export * from './BloomFilter';
+export * from './ObjectBloom';
+export * from './SearchBloom'
+export * from './extractNgramsFromObject';

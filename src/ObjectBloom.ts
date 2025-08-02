@@ -1,47 +1,43 @@
 /**
  * Converts an object's fields to a Bloom filter map using BloomFilter.
  */
+import { SearchBloom, SearchBloomOptions } from "./SearchBloom"; // <-- Import SearchBloom
+import {
+  extractNgramsFromObject,
+} from "./extractNgramsFromObject";
 
-import { BloomFilter, BloomFilterMap, BloomFilterOptions } from './BloomFilter';
-
-export interface ObjectBloomOptions extends BloomFilterOptions {
+export interface ObjectBloomOptions extends SearchBloomOptions {
   /**
    * When present, only these fields will be used to extract text for the Bloom filter.
-   * If not present, all string fields will be used.
+   * If not present, all string fields will be used recursively.
    */
   fields?: string[];
 }
 
-export class ObjectBloom {
-  private bloom: BloomFilter;
-  private fields: string[];
+export class ObjectBloom extends SearchBloom {
+  private fields?: string[];
 
   constructor(options: ObjectBloomOptions = {}) {
-    this.bloom = new BloomFilter(options);
-    this.fields = options.fields ?? [];
-  }
+    super({
+      bloomBits: options.bloomBits,
+      hashFunctions: options.hashFunctions,
+      mode: options.mode,
+      ngramSize: options.ngramSize ?? 3,
+    });
 
-  /**
-   * Extracts and concatenates relevant fields from the object.
-   */
-  private extractText(obj: Record<string, any>): string {
-    let text = '';
-    for (const field of this.fields) {
-      const value = obj[field];
-      if (typeof value === 'string') {
-        text += ' ' + value;
-      } else if (Array.isArray(value)) {
-        text += ' ' + value.join(' ');
-      }
-    }
-    return text.trim();
+    this.fields = options.fields;
   }
 
   /**
    * Generates a Bloom filter map for the object.
    */
-  public bloomFromObject(obj: Record<string, any>): BloomFilterMap {
-    const text = this.extractText(obj);
-    return this.bloom.bloomFromString(text);
+  public addObject(obj: Record<string, any>): void {
+    this.nGrams = extractNgramsFromObject(
+      this.fields
+        ? Object.fromEntries(this.fields.map((f) => [f, obj[f]]))
+        : obj,
+      { n: this.ngramSize }
+    );
+    this.nGrams.forEach((ngram) => this.add(ngram));
   }
 }

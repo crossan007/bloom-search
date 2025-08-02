@@ -1,70 +1,87 @@
-/**
- * Bloom filter operations: n-gram extraction, hashing, and filter creation.
- */
+import { murmurhash3_32_gc } from './MurMurHash';
 
-export interface BloomFilterMap {
-  [bit: number]: 0 | 1;
-}
+export type BloomFilterMap = { [bit: number]: number };
+
+type BloomMode = "counting" | "standard";
 
 export interface BloomFilterOptions {
-  ngramSize?: number;
   bloomBits?: number;
   hashFunctions?: number;
+  mode?: BloomMode;
 }
 
 export class BloomFilter {
-  private ngramSize: number;
   private bloomBits: number;
   private hashFunctions: number;
+  private bits: Map<number, number>; // <-- FIXED
+  private mode: BloomMode;
 
   constructor(options: BloomFilterOptions = {}) {
-    this.ngramSize = options.ngramSize ?? 3;
     this.bloomBits = options.bloomBits ?? 128;
     this.hashFunctions = options.hashFunctions ?? 4;
-  }
-
-  /**
-   * Generate n-grams from a string.
-   */
-  ngrams(text: string): string[] {
-    const cleaned = text.toLowerCase().replace(/[^a-z0-9]/g, ' ');
-    const grams: string[] = [];
-    for (let i = 0; i <= cleaned.length - this.ngramSize; i++) {
-      grams.push(cleaned.slice(i, i + this.ngramSize));
-    }
-    return grams;
+    this.bits = new Map<number, number>(); // <-- FIXED
+    this.mode = options.mode ?? "standard";
   }
 
   /**
    * Simple hash function using a seed.
    */
   private hash(str: string, seed: number): number {
-    let hash = seed;
-    for (let i = 0; i < str.length; i++) {
-      hash = ((hash << 5) - hash) + str.charCodeAt(i) + seed;
-      hash |= 0; // Convert to 32bit integer
-    }
-    return Math.abs(hash) % this.bloomBits;
+    return murmurhash3_32_gc(str, seed) % this.bloomBits;
   }
 
   /**
-   * Hash n-grams into a Bloom filter map.
+   * Add an item (string) to the Bloom filter.
    */
-  hashNgrams(ngramsArr: string[]): BloomFilterMap {
-    const map: BloomFilterMap = {};
-    for (const gram of ngramsArr) {
-      for (let k = 0; k < this.hashFunctions; k++) {
-        const bit = this.hash(gram, k);
-        map[bit] = 1;
+  protected add(item: string): void {
+    for (let k = 0; k < this.hashFunctions; k++) {
+      const bit = this.hash(item, k);
+      this.bits.set(bit, (this.bits.get(bit) ?? 0) + 1);
+    }
+  }
+
+  /**
+   * Check if an item (string) is possibly in the Bloom filter.
+   */
+  has(item: string): boolean {
+    for (let k = 0; k < this.hashFunctions; k++) {
+      const bit = this.hash(item, k);
+      if (!this.bits.has(bit)) {
+        return false;
       }
+    }
+    return true;
+  }
+
+  /**
+   * Export the Bloom filter as a map (for Firestore or serialization).
+   */
+  toMap(): BloomFilterMap {
+    const map: { [bit: number]: number } = {};
+    for (const [bit, count] of this.bits.entries()) {
+      map[bit] = this.mode == "counting" ? count : 1;
     }
     return map;
   }
 
   /**
-   * Generate a Bloom filter map from a string.
+   * Load a Bloom filter from a map.
    */
-  bloomFromString(text: string): BloomFilterMap {
-    return this.hashNgrams(this.ngrams(text));
+  static fromMap(map: BloomFilterMap, options: BloomFilterOptions = {}): BloomFilter {
+    const filter = new BloomFilter(options);
+    for (const bitStr of Object.keys(map)) {
+      filter.bits.set(Number(bitStr), map[Number(bitStr)]);
+    }
+    return filter;
+  }
+
+  public static CompareMaps(haystack: BloomFilterMap, needle: BloomFilterMap): boolean {
+    for (const bit in needle) {
+      if (!haystack[bit] || haystack[bit] < needle[bit]) {
+        return false; // If any bit in needle is not present or less than required, return false
+      }
+    }
+    // If all bits in needle are found in haystack with sufficient count, return true 
+    return true;
   }
 }

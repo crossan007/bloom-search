@@ -1,44 +1,66 @@
-import { extractNgramsFromObject } from './extractNgramsFromObject';
+import {
+  extractNgramsFromObject,
+  ExtractNgramsOptions,
+} from "./extractNgramsFromObject";
 
-describe('extractNgramsFromObject', () => {
-  it('extracts n-grams from flat string properties', () => {
-    const obj = { name: 'Alice', city: 'Paris' };
-    const result = extractNgramsFromObject(obj, 3);
-    expect(result).toContain('ali');
-    expect(result).toContain('lic');
-    expect(result).toContain('ice');
-    expect(result).toContain('par');
-    expect(result).toContain('ari');
-    expect(result).toContain('ris');
+describe("extractNgramsFromObject", () => {
+  const defaultOptions: ExtractNgramsOptions = { n: 3 };
+
+  it("extracts n-grams from flat string properties", () => {
+    const obj = { name: "Alice", city: "Paris" };
+    const result = extractNgramsFromObject(obj, { ...defaultOptions, n: 3 });
+    expect(result).toContain("ali");
+    expect(result).toContain("lic");
+    expect(result).toContain("ice");
+    expect(result).toContain("par");
+    expect(result).toContain("ari");
+    expect(result).toContain("ris");
   });
 
-  it('extracts n-grams from nested objects', () => {
-    const obj = { user: { info: { bio: 'Hello' } } };
-    const result = extractNgramsFromObject(obj, 2);
-    expect(result).toContain('he');
-    expect(result).toContain('el');
-    expect(result).toContain('ll');
-    expect(result).toContain('lo');
+  it("extracts n-grams from nested objects", () => {
+    const obj = { user: { info: { bio: "Hello" } } };
+    const result = extractNgramsFromObject(obj, { ...defaultOptions, n: 2 });
+    expect(result).toContain("he");
+    expect(result).toContain("el");
+    expect(result).toContain("ll");
+    expect(result).toContain("lo");
   });
 
-  it('extracts n-grams from arrays of strings', () => {
-    const obj = { tags: ['foo', 'bar'] };
-    const result = extractNgramsFromObject(obj, 2);
-    expect(result).toContain('fo');
-    expect(result).toContain('oo');
-    expect(result).toContain('ba');
-    expect(result).toContain('ar');
+  it("extracts n-grams from arrays of strings", () => {
+    const obj = { tags: ["foo", "bar"] };
+    const result = extractNgramsFromObject(obj, { ...defaultOptions, n: 2 });
+    expect(result).toContain("fo");
+    expect(result).toContain("oo");
+    expect(result).toContain("ba");
+    expect(result).toContain("ar");
   });
 
-  it('ignores non-string properties', () => {
+  it("ignores non-string properties", () => {
     const obj = { count: 42, valid: true, nested: { date: new Date() } };
-    const result = extractNgramsFromObject(obj, 2);
+    const result = extractNgramsFromObject(obj, { ...defaultOptions, n: 2 });
     expect(result.length).toBe(0);
   });
 
-  it('handles empty objects', () => {
+  it("handles empty objects", () => {
     const obj = {};
-    const result = extractNgramsFromObject(obj, 3);
+    const result = extractNgramsFromObject(obj, { ...defaultOptions, n: 3 });
     expect(result.length).toBe(0);
+  });
+  it("handles nested properties by name", () => {
+    const obj = {
+      user: { name: "Bob", address: { city: "London", state: "England" } },
+    };
+    const result = extractNgramsFromObject(obj, {
+      ...defaultOptions,
+      n: 2,
+      fields: ["user.name", "user.address.city"],
+    });
+    expect(result).toContain("bo");
+    expect(result).toContain("ob");
+    expect(result).toContain("lo");
+    expect(result).toContain("on");
+    const onCount = result.filter((ngram) => ngram === "on").length;
+    expect(onCount).toBe(1); // repeated n-grams should not be duplicated
+    expect(result).not.toContain("en"); // 'state' should not be included
   });
 });

@@ -1,25 +1,27 @@
 import { BloomFilter } from './BloomFilter';
 
 describe('BloomFilter', () => {
-  const bloom = new BloomFilter({ ngramSize: 3, bloomBits: 16, hashFunctions: 2 });
+  it('adds and checks items correctly', () => {
+    const bloom = new BloomFilter({ bloomBits: 16, hashFunctions: 2 });
+    //@ts-ignore
+    bloom.add('apple');
+    //@ts-ignore
+    bloom.add('banana');
 
-  it('generates correct n-grams', () => {
-    expect(bloom.ngrams('test')).toEqual(['tes', 'est']);
-    expect(bloom.ngrams('abc')).toEqual(['abc']);
-    expect(bloom.ngrams('ab')).toEqual([]);
+    expect(bloom.has('apple')).toBe(true);
+    expect(bloom.has('banana')).toBe(true);
+    // False positives possible, but unlikely for unrelated string
+    expect(bloom.has('carrot')).toBe(false);
   });
 
-  it('hashes n-grams into a Bloom filter map', () => {
-    const ngrams = bloom.ngrams('test');
-    const map = bloom.hashNgrams(ngrams);
-    expect(typeof map).toBe('object');
-    expect(Object.values(map).every(v => v === 1)).toBe(true);
-    expect(Object.keys(map).length).toBeGreaterThan(0);
-  });
+  it('exports and imports as a map', () => {
+    const bloom = new BloomFilter({ bloomBits: 16, hashFunctions: 2 });
+    //@ts-ignore
+    bloom.add('test');
+    const map = bloom.toMap();
 
-  it('bloomFromString returns a Bloom filter map', () => {
-    const map = bloom.bloomFromString('hello');
-    expect(typeof map).toBe('object');
-    expect(Object.values(map).every(v => v === 1)).toBe(true);
+    const restored = BloomFilter.fromMap(map, { bloomBits: 16, hashFunctions: 2 });
+    expect(restored.has('test')).toBe(true);
+    expect(restored.has('other')).toBe(false);
   });
 });

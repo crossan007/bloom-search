@@ -2,19 +2,35 @@
  * Utilities for generating a Bloom filter map from a search query string.
  */
 
-import { BloomFilter, BloomFilterMap, BloomFilterOptions } from './BloomFilter';
+import {
+  BloomFilter,
+  BloomFilterOptions,
+} from "./BloomFilter";
+import { extractNgramsFromObject } from "./extractNgramsFromObject";
 
-export class SearchBloom {
-  private bloom: BloomFilter;
+export interface SearchBloomOptions extends BloomFilterOptions {
+  ngramSize?: number;
+}
 
-  constructor(options: BloomFilterOptions = {}) {
-    this.bloom = new BloomFilter(options);
+export class SearchBloom extends BloomFilter {
+  protected ngramSize: number;
+  public nGrams: string[] = [];
+
+  constructor(options: SearchBloomOptions = {}) {
+    super({
+      bloomBits: options.bloomBits,
+      hashFunctions: options.hashFunctions,
+      mode: options.mode,
+    });
+
+    this.ngramSize = options.ngramSize ?? 3;
   }
 
   /**
-   * Generates a Bloom filter map from a search query string.
+   * Adds all n-grams from the string to the Bloom filter.
    */
-  bloomFromQuery(query: string): BloomFilterMap {
-    return this.bloom.bloomFromString(query);
+  public addString(search: string): void {
+    this.nGrams = extractNgramsFromObject({ search }, { n: this.ngramSize });
+    this.nGrams.forEach((ngram) => this.add(ngram));
   }
 }
