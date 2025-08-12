@@ -18,11 +18,14 @@ export function extractNgramsFromObject(obj: any, options: ExtractNgramsOptions)
   const fieldSet = fields ? new Set(fields) : undefined;
 
   function shouldExtract(path: string) {
-    return !fieldSet || fieldSet.has(path);
+    return !fieldSet || path.length == 0 || fieldSet.has(path);
   }
 
   function recurse(value: any, path: string) {
-    if (typeof value === 'string' && shouldExtract(path)) {
+    if (!shouldExtract(path)) {
+      return;
+    }
+    if (typeof value === 'string') {
       const cleaned = value.toLowerCase().replace(/[^a-z0-9]/g, ' ');
       for (let i = 0; i <= cleaned.length - n; i++) {
         ngramSet.add(cleaned.slice(i, i + n));
