@@ -22,7 +22,8 @@ describe('ObjectBloom', () => {
 
     const map = bloom.toMap();
     expect(typeof map).toBe('object');
-    expect(Object.values(map).every(v => v === 1)).toBe(true);
+    // Type-safe check for counting or boolean BloomFilterMap
+    expect(Object.values(map).every(v => typeof v === 'number' ? v === 1 : v === true)).toBe(true);
     // Check that all ngrams from the object are in the Bloom filter
     objectNgrams.forEach(ngram => {
       expect(bloom.has(ngram)).toBe(true);

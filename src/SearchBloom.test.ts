@@ -8,7 +8,7 @@ describe('SearchBloom', () => {
     expect(typeof map).toBe('object');
     expect(Object.keys(map).length).toBeGreaterThan(0);
     // All values should be >= 1 (counting bloom filter)
-    expect(Object.values(map).every(v => v >= 1)).toBe(true);
+    expect(Object.values(map).every(v => typeof v === 'number' ? v >= 1 : v === true)).toBe(true);
   });
 
   it('addString mutates the filter and toMap reflects the change', () => {
@@ -16,6 +16,6 @@ describe('SearchBloom', () => {
     bloom.addString('search');
     const map = bloom.toMap();
     expect(Object.keys(map).length).toBeGreaterThan(0);
-    expect(Object.values(map).every(v => v >= 1)).toBe(true);
+    expect(Object.values(map).every(v => typeof v === 'number' ? v >= 1 : v === true)).toBe(true);
   });
 });

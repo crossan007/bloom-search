@@ -1,8 +1,9 @@
 import { murmurhash3_32_gc } from './MurMurHash';
 
-export type BloomFilterMap = { [bit: number]: number };
+export type CountingBloomFilterMap = { [bit: number]: number };
+export type StandardBloomFilterMap = { [bit: number]: boolean };
 
-type BloomMode = "counting" | "standard";
+export type BloomMode = "counting" | "standard";
 
 export interface BloomFilterOptions {
   bloomBits?: number;
@@ -10,17 +11,19 @@ export interface BloomFilterOptions {
   mode?: BloomMode;
 }
 
-export class BloomFilter {
+export class BloomFilter<T extends BloomMode = "standard"> {
   private bloomBits: number;
   private hashFunctions: number;
-  private bits: Map<number, number>; // <-- FIXED
-  private mode: BloomMode;
+  private bits: T extends "counting" ? Map<number, number> : Map<number, boolean>;
+  private mode: T;
 
   constructor(options: BloomFilterOptions = {}) {
     this.bloomBits = options.bloomBits ?? 128;
     this.hashFunctions = options.hashFunctions ?? 4;
-    this.bits = new Map<number, number>(); // <-- FIXED
-    this.mode = options.mode ?? "standard";
+    this.mode = (options.mode ?? "standard") as T;
+    this.bits = (this.mode === "counting"
+      ? new Map<number, number>()
+      : new Map<number, boolean>()) as T extends "counting" ? Map<number, number> : Map<number, boolean>;
   }
 
   /**
@@ -36,7 +39,13 @@ export class BloomFilter {
   protected add(item: string): void {
     for (let k = 0; k < this.hashFunctions; k++) {
       const bit = this.hash(item, k);
-      this.bits.set(bit, (this.bits.get(bit) ?? 0) + 1);
+      if (this.mode === "counting") {
+        const bits = this.bits as Map<number, number>;
+        bits.set(bit, (bits.get(bit) ?? 0) + 1);
+      } else {
+        const bits = this.bits as Map<number, boolean>;
+        bits.set(bit, true);
+      }
     }
   }
 
@@ -56,10 +65,16 @@ export class BloomFilter {
   /**
    * Export the Bloom filter as a map (for Firestore or serialization).
    */
-  toMap(): BloomFilterMap {
-    const map: { [bit: number]: number } = {};
-    for (const [bit, count] of this.bits.entries()) {
-      map[bit] = this.mode == "counting" ? count : 1;
+  toMap(): T extends "counting" ? CountingBloomFilterMap : StandardBloomFilterMap {
+    const map: any = {};
+    if (this.mode === "counting") {
+      for (const [bit, count] of (this.bits as Map<number, number>).entries()) {
+        map[bit] = count;
+      }
+    } else {
+      for (const [bit] of (this.bits as Map<number, boolean>).entries()) {
+        map[bit] = true;
+      }
     }
     return map;
   }
@@ -67,15 +82,15 @@ export class BloomFilter {
   /**
    * Load a Bloom filter from a map.
    */
-  static fromMap(map: BloomFilterMap, options: BloomFilterOptions = {}): BloomFilter {
-    const filter = new BloomFilter(options);
+  static fromMap<T extends BloomMode>(map: T extends "counting" ? CountingBloomFilterMap : StandardBloomFilterMap, options: BloomFilterOptions = {}): BloomFilter<T> {
+    const filter = new BloomFilter<T>(options);
     for (const bitStr of Object.keys(map)) {
-      filter.bits.set(Number(bitStr), map[Number(bitStr)]);
+      (filter.bits as any).set(Number(bitStr), map[Number(bitStr)]);
     }
     return filter;
   }
 
-  public static CompareMaps(haystack: BloomFilterMap, needle: BloomFilterMap): boolean {
+  public static CompareMaps(haystack: CountingBloomFilterMap, needle: CountingBloomFilterMap): boolean {
     for (const bit in needle) {
       if (!haystack[bit] || haystack[bit] < needle[bit]) {
         return false; // If any bit in needle is not present or less than required, return false

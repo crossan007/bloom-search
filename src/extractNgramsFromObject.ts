@@ -21,10 +21,22 @@ export function extractNgramsFromObject(obj: any, options: ExtractNgramsOptions)
     return !fieldSet || path.length == 0 || fieldSet.has(path);
   }
 
+  function shouldRecurse(path: string) {
+    return path.length == 0 || fields?.some(field => field.startsWith(path)) || !fieldSet;
+  }
+
   function recurse(value: any, path: string) {
+    if (value && typeof value === 'object' && shouldRecurse(path)) {
+      for (const key of Object.keys(value)) {
+        const newPath = path ? `${path}.${key}` : key;
+        recurse(value[key], newPath);
+      }
+    }
+
     if (!shouldExtract(path)) {
       return;
     }
+  
     if (typeof value === 'string') {
       const cleaned = value.toLowerCase().replace(/[^a-z0-9]/g, ' ');
       for (let i = 0; i <= cleaned.length - n; i++) {
@@ -33,11 +45,6 @@ export function extractNgramsFromObject(obj: any, options: ExtractNgramsOptions)
     } else if (Array.isArray(value)) {
       for (let i = 0; i < value.length; i++) {
         recurse(value[i], path ? `${path}[${i}]` : `[${i}]`);
-      }
-    } else if (value && typeof value === 'object') {
-      for (const key of Object.keys(value)) {
-        const newPath = path ? `${path}.${key}` : key;
-        recurse(value[key], newPath);
       }
     }
   }
